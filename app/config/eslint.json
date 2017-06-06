@@ -1,0 +1,27 @@
+{
+  "parser": "babel-eslint",
+
+  "env": {
+    "browser": true,
+    "node": false,
+    "es6": true
+  },
+
+  "ecmaFeatures": {
+      "classes": true,
+      "jsx": true
+  },
+
+  "plugins": ["react"],
+
+  "extends": ["eslint:recommended", "plugin:react/recommended"],
+
+  "rules": {
+    "indent": ["error", 2],
+    "jsx-quotes": ["error", "prefer-double"]
+  },
+
+  "parserOptions": {
+    "sourceType": "module"
+  }
+}

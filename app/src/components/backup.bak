@@ -1,0 +1,118 @@
+import React from 'react';
+
+import _ from "lodash";
+
+import {List, ListItem} from 'material-ui/List';
+import Subheader from 'material-ui/Subheader';
+
+import TextField from 'material-ui/TextField';
+import Identicon from '../lib/identicon.jsx';
+
+
+const style = {
+  profile: {},
+  avatar: {
+    width: 56,
+    height: 56
+  }
+}
+
+
+export default class App extends React.Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      profile: "",
+      working: false,
+      contexts: [],
+      balances: {}
+    };
+
+    this.web3 = typeof web3 !== 'undefined' ? web3 : null;
+  }
+
+  componentDidMount() {
+    if (_.isEmpty(this.state.contexts)) {
+      fetch(`/api/contexts/`)
+      .then(response => response.body)
+      .catch(() => ([]))
+      .then(contexts => {
+        this.setState({contexts}, () => {
+          if (this.web3) {
+            this.timer = setInterval(() => {
+              this.web3.eth.getAccounts((err, accounts) => {
+                var profile = accounts[0];
+                if (profile && this.state.profile !== profile) {
+                  this.getBalances(contexts, profile).then(balances => {
+                    this.setState({balances, profile});
+                  });
+                }
+              });
+            }, 1000);
+          }
+        });
+      })
+    }
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+
+  getBalances (contexts, profile) {
+    var requests = [];
+    for (let contextId in contexts) {
+      requests.push(fetch(`/api/tokens/${contextId}/${profile}`)
+      .then(response => response.body)
+      .catch(() => ({
+        context: contextId,
+        identifier: profile,
+        balance: 0
+      })));
+    }
+    return Promise.all(requests).then(results => {
+      var balances = {};
+      for (let i = results.length - 1; i >= 0; i--) {
+        balances[results[i].context] = results[i].balance / Math.pow(10, results[i].decimals);
+      }
+      return balances;
+    });
+  }
+
+  render () {
+    var message = "";
+
+    if (!this.web3) {
+      message = <span>You need to use <a href="https://metamask.io/">MetaMask</a> or <a href="https://github.com/ethereum/mist/releases">Mist Browser</a> to add backing.</span>
+    }
+
+    var contexts = []
+
+    for (var contextId in this.state.contexts) {
+      let logo = <img style={style.avatar} src={`/api/contexts${this.state.contexts[contextId].images.avatar}`}/>;
+      let item = <ListItem
+        key={contextId}
+        leftAvatar={logo}
+        primaryText={this.state.contexts[contextId].name}
+        secondaryText={<p>
+          ID: {contextId}<br/>
+          Balance: {this.state.balances[contextId]} {this.state.contexts[contextId].symbol}</p>}
+        secondaryTextLines={2}/>
+      contexts.push(item);
+    }
+
+    return <div>
+      {message}
+      <h4>Your profile:</h4>
+
+      <Identicon seed={this.state.profile} size={8} scale={3}/>
+      <TextField id="profile" value={this.state.profile} disabled={true} style={style.profile}/>
+
+      <List>
+        <Subheader>ThoughtClouds</Subheader>
+        {contexts}
+      </List>
+    </div>
+  }
+}
